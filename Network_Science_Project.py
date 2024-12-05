@@ -244,7 +244,8 @@ class TrafficSimulation:
                     vehicle.stuck = True
                     vehicle.path = []
         
-        print(f"Active vehicles: {active_vehicles}, Stuck vehicles: {stuck_vehicles}")
+        
+        return active_vehicles, stuck_vehicles
 
     def create_visualization(self):
         m = folium.Map(location=self.center, zoom_start=15)
@@ -295,20 +296,26 @@ class TrafficSimulation:
 def main():
     sim = TrafficSimulation()
     
-    num_vehicles = 50
+    num_vehicles = 500
     nav_percentage = 50
-    num_steps = 20
+    
     
     sim.initialize_vehicles(num_vehicles, nav_percentage)
     
-    print(f"Running simulation for {num_steps} steps...")
-    for step in range(num_steps):
-        print(f"\nStep {step + 1}/{num_steps}")
-        sim.simulate_step()
+    
+    active_vehicles = 1
+    stuck_vehicles = 1
+    step = 0
+    while active_vehicles > 0:
+        print(f"\nStep {step + 1}")
+        active_vehicles, stuck_vehicles = sim.simulate_step()
+        print(f"Active vehicles: {active_vehicles}, Stuck vehicles: {stuck_vehicles}")
         
         if (step + 1) % 5 == 0 or step == 0:
             m = sim.create_visualization()
             m.save(f'traffic_step_{step + 1}.html')
+
+        step += 1
     
     # Calculate final statistics
     total_reroutes = sum(v.reroutes for v in sim.vehicles.values())
