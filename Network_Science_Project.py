@@ -1,3 +1,4 @@
+import pdb
 import osmnx as ox
 import networkx as nx
 import folium
@@ -45,7 +46,7 @@ class TrafficSimulation:
         
         # Add edge attributes
         for u, v, k, data in self.G.edges(data=True, keys=True):
-            self.G[u][v][k]['capacity'] = random.randint(50, 200)
+            self.G[u][v][k]['capacity'] = random.randint(20, 100)
             self.G[u][v][k]['base_speed'] = random.uniform(30, 50)
             self.G[u][v][k]['current_flow'] = 0
             self.G[u][v][k]['congestion_factor'] = 1.0
@@ -75,35 +76,6 @@ class TrafficSimulation:
         
         # Check if all nodes in path exist in graph
         return all(node in self.G.nodes for node in path)
-
-    # def find_path(self, vehicle):
-    #     """Find path using Dijkstra's algorithm with validation"""
-    #     if vehicle.stuck:
-    #         return []
-            
-    #     try:
-    #         path = nx.shortest_path(
-    #             self.G, 
-    #             vehicle.current_position,
-    #             vehicle.end,
-    #             weight=self.get_edge_weight
-    #         )
-            
-    #         if self.is_valid_path(path):
-    #             return path
-    #         else:
-    #             print(f"Invalid path found for vehicle {vehicle.id}")
-    #             vehicle.stuck = True
-    #             return []
-                
-    #     except nx.NetworkXNoPath:
-    #         print(f"No path found for vehicle {vehicle.id}")
-    #         vehicle.stuck = True
-    #         return []
-    #     except Exception as e:
-    #         print(f"Error finding path for vehicle {vehicle.id}: {e}")
-    #         vehicle.stuck = True
-    #         return []
 
     def find_path(self, vehicle):
         """Find path using A* algorithm with validation"""
@@ -149,26 +121,29 @@ class TrafficSimulation:
         nodes = list(self.G.nodes())
         
         for i in range(num_vehicles):
-            start = random.choice(nodes)
-            end = random.choice(nodes)
-            while end == start:
+            initial_path = []
+
+            while not initial_path:
+                start = random.choice(nodes)
                 end = random.choice(nodes)
-            
-            has_nav = random.random() < (nav_percentage / 100)
-            curiosity = random.random() if not has_nav else 0.8
-            
-            vehicle = Vehicle(
-                id=i,
-                start=start,
-                end=end,
-                curiosity=curiosity,
-                has_navigation=has_nav
-            )
-            self.vehicles[i] = vehicle
-            
-            # Initialize path for vehicle
-            initial_path = self.find_path(vehicle)
-            vehicle.path = initial_path if initial_path else []
+                while end == start:
+                    end = random.choice(nodes)
+                
+                has_nav = random.random() < (nav_percentage / 100)
+                curiosity = random.random() if not has_nav else 0.8
+                
+                vehicle = Vehicle(
+                    id=i,
+                    start=start,
+                    end=end,
+                    curiosity=curiosity,
+                    has_navigation=has_nav
+                )
+                self.vehicles[i] = vehicle
+                
+                # Initialize path for vehicle
+                initial_path = self.find_path(vehicle)
+                vehicle.path = initial_path
 
     def update_edge_flows(self):
         """Update traffic flow on all edges with path validation"""
@@ -195,11 +170,12 @@ class TrafficSimulation:
             
             current_flow = self.edge_flows.get((u, v, k), 0)
             capacity = self.G[u][v][k]['capacity']
+            # pdb.set_trace()
             
             congestion = current_flow / capacity if capacity > 0 else 0
-            reroute_threshold = 0.3 if vehicle.has_navigation else 0.7
             
-            return congestion > self.congestion_threshold and random.random() < (vehicle.curiosity * reroute_threshold)
+            return congestion > self.congestion_threshold 
+        
         except Exception as e:
             print(f"Error checking reroute for vehicle {vehicle.id}: {e}")
             return False
@@ -221,11 +197,22 @@ class TrafficSimulation:
                 
             active_vehicles += 1
             
-            if self.should_reroute(vehicle):
+            # if self.should_reroute(vehicle):
+            #     new_path = self.find_path(vehicle)
+            #     if new_path:
+            #         vehicle.path = new_path
+            #         vehicle.reroutes += 1
+            if vehicle.has_navigation:
                 new_path = self.find_path(vehicle)
                 if new_path:
                     vehicle.path = new_path
                     vehicle.reroutes += 1
+            else:
+                if self.should_reroute(vehicle):
+                    new_path = self.find_path(vehicle)
+                    if new_path:
+                        vehicle.path = new_path
+                        vehicle.reroutes += 1
             
             if not vehicle.path:
                 vehicle.path = self.find_path(vehicle)
