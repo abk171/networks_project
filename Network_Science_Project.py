@@ -46,27 +46,36 @@ class TrafficSimulation:
         )
         
         # Add edge attributes
-        for u, v, k, data in self.G.edges(data=True, keys=True):
+        for u, v, k, data in sorted(self.G.edges(data=True, keys=True)):
             self.G[u][v][k]['capacity'] = random.randint(20, 100)
             self.G[u][v][k]['base_speed'] = random.uniform(30, 50)
             self.G[u][v][k]['current_flow'] = 0
             self.G[u][v][k]['congestion_factor'] = 1.0
 
     def get_edge_weight(self, u, v, edge_data):
-        """Calculate edge weight based on congestion"""
+        """Calculate the least congested edge weight between nodes u and v."""
         try:
-            keys = self.G[u][v].keys()
-            if not keys:
-                return float('inf')
-            k = list(keys)[0]
-            
-            current_flow = self.edge_flows.get((u, v, k), 0)
-            capacity = self.G[u][v][k]['capacity']
-            length = self.G[u][v][k].get('length', 1.0)
-            
-            congestion_factor = 1 + (current_flow / capacity) ** 2 if capacity > 0 else 1
-            self.G[u][v][k]['congestion_factor'] = congestion_factor
-            return length * congestion_factor
+            # Get all edges between u and v
+            edges = self.G[u][v].items()
+            min_weight = float('inf')
+
+            for k, data in edges:
+                # Extract attributes for the edge
+                current_flow = self.edge_flows.get((u, v, k), 0)
+                capacity = data.get('capacity', 1)  # Default to 1 to avoid division by zero
+                length = data.get('length', 1.0)
+
+                # Calculate congestion factor
+                congestion_factor = 1 + (current_flow / capacity) ** 2 if capacity > 0 else 1
+
+                # Calculate edge weight
+                weight = length * congestion_factor
+
+                # Track the minimum weight
+                if weight < min_weight:
+                    min_weight = weight
+
+            return min_weight
         except Exception as e:
             print(f"Error calculating edge weight: {e}")
             return float('inf')
@@ -198,19 +207,19 @@ class TrafficSimulation:
                 continue
                 
             active_vehicles += 1
-                      
-            if vehicle.has_navigation:
+            
+            if self.should_reroute(vehicle):
                 new_path = self.find_path(vehicle)
                 if new_path:
                     vehicle.path = new_path
                     vehicle.reroutes += 1
-            else:
-                if self.should_reroute(vehicle):
+            # else:
+            #     if self.should_reroute(vehicle):
 
-                    new_path = self.find_path(vehicle)
-                    if new_path:
-                        vehicle.path = new_path
-                        vehicle.reroutes += 1
+            #         new_path = self.find_path(vehicle)
+            #         if new_path:
+            #             vehicle.path = new_path
+            #             vehicle.reroutes += 1
             
             if not vehicle.path:
                 vehicle.path = self.find_path(vehicle)
@@ -224,9 +233,11 @@ class TrafficSimulation:
                     vehicle.current_position = vehicle.path[1]
                     vehicle.distance_traveled += self.G[u][v][k]['length']
                     # base_speed * math.exp(-alpha * (congestion_factor - 1))
-                    speed = self.G[u][v][k]['base_speed'] * math.exp(-(self.G[u][v][k]['congestion_factor'] - 1))
-                    vehicle.travel_time = self.G[u][v][k]['length'] / speed
-                    vehicle.path = vehicle.path[1:] 
+                    # speed = self.G[u][v][k]['base_speed'] * math.exp(-(self.G[u][v][k]['congestion_factor'] - 1))
+                    # vehicle.travel_time = self.G[u][v][k]['length'] / speed
+                    # vehicle.path = vehicle.path[1:] if vehicle.has_navigation else vehicle.path
+                    
+                    vehicle.path = vehicle.path[1:]
                 except Exception as e:
                     print(f"Error moving vehicle {vehicle.id}: {e}")
                     vehicle.stuck = True
@@ -249,7 +260,7 @@ class TrafficSimulation:
         edges = ox.graph_to_gdfs(self.G, nodes=False)
         for (u, v, k), row in edges.iterrows():
             try:
-                congestion = min(1.0, self.edge_flows.get((u, v, k), 0) / self.G[u][v][k]['capacity'])
+                congestion = min(1.0, 50 * (self.edge_flows.get((u, v, k), 0) / self.G[u][v][k]['capacity']))
                 color = colormap(congestion)
                 
                 if row.geometry:
@@ -267,7 +278,13 @@ class TrafficSimulation:
         for vehicle in self.vehicles.values():
             try:
                 node = self.G.nodes[vehicle.current_position]
-                color = 'red' if vehicle.stuck else ('blue' if vehicle.has_navigation else 'gray')
+                # color = 'red' if vehicle.stuck else ('blue' if vehicle.has_navigation else 'gray')
+                if vehicle.current_position == vehicle.end:
+                    color = 'gray'
+                elif vehicle.has_navigation:
+                    color = 'red'
+                else:
+                    color = 'blue'
                 
                 folium.CircleMarker(
                     location=(node['y'], node['x']),
@@ -286,7 +303,7 @@ def main():
     sim = TrafficSimulation()
     
     num_vehicles = 500
-    nav_percentage = 50
+    nav_percentage = 80
     
     
     sim.initialize_vehicles(num_vehicles, nav_percentage)
@@ -311,14 +328,14 @@ def main():
     active_vehicles = sum(1 for v in sim.vehicles.values() if not v.stuck)
     stuck_vehicles = sum(1 for v in sim.vehicles.values() if v.stuck)
     avg_distance = sum(v.distance_traveled for v in sim.vehicles.values()) / num_vehicles
-    avg_travel_time = sum(v.travel_time for v in sim.vehicles.values()) / num_vehicles
+    # avg_travel_time = sum(v.travel_time for v in sim.vehicles.values()) / num_vehicles
     
     print("\nSimulation Results:")
     print(f"Total reroutes: {total_reroutes}")
     print(f"Active vehicles: {active_vehicles}")
     print(f"Stuck vehicles: {stuck_vehicles}")
     print(f"Average distance traveled: {avg_distance:.2f} meters")
-    print(f'Average time taken: {avg_travel_time:.2f} hours')
+    # print(f'Average time taken: {avg_travel_time:.2f} hours')
     print(f"Maps generated: traffic_step_X.html")
 
 if __name__ == '__main__':
