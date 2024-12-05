@@ -1,3 +1,4 @@
+import argparse
 import math
 import pdb
 import osmnx as ox
@@ -301,9 +302,27 @@ class TrafficSimulation:
 def main():
     random.seed(42)
     sim = TrafficSimulation()
+    parser = argparse.ArgumentParser(description="Traffic Simulation Arguments")
     
-    num_vehicles = 500
-    nav_percentage = 80
+    # Argument for the number of vehicles
+    parser.add_argument(
+        "--num_vehicles",
+        type=int,
+        default=500,
+        help="Number of vehicles to simulate (default: 500)"
+    )
+    
+    # Argument for navigation percentage
+    parser.add_argument(
+        "--nav_percentage",
+        type=float,
+        default=80.0,
+        help="Percentage of vehicles using navigation (default: 80.0)"
+    )
+    
+    args = parser.parse_args()
+    num_vehicles = args.num_vehicles
+    nav_percentage = args.nav_percentage
     
     
     sim.initialize_vehicles(num_vehicles, nav_percentage)
