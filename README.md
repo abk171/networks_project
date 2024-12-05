@@ -18,5 +18,5 @@ pip install branca
 #### Usage
 ```shell
 conda activate ox
-python Network_Science_Project.py
+python Network_Science_Project.py --num_vehicles 500 --nav_percentage 20
 ```
