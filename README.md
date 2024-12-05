@@ -9,6 +9,7 @@ Assumes you have `miniconda/anaconda` installed. Instructions on how to install 
 
 ```shell
 conda create -n ox -c conda-forge --strict-channel-priority osmnx
+conda activate ox
 pip install networkx[default]
 pip install folium
 pip install branca
@@ -16,5 +17,6 @@ pip install branca
 
 #### Usage
 ```shell
+conda activate ox
 python Network_Science_Project.py
 ```
