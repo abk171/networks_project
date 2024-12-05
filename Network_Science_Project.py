@@ -1,3 +1,4 @@
+import math
 import pdb
 import osmnx as ox
 import networkx as nx
@@ -64,6 +65,7 @@ class TrafficSimulation:
             length = self.G[u][v][k].get('length', 1.0)
             
             congestion_factor = 1 + (current_flow / capacity) ** 2 if capacity > 0 else 1
+            self.G[u][v][k]['congestion_factor'] = congestion_factor
             return length * congestion_factor
         except Exception as e:
             print(f"Error calculating edge weight: {e}")
@@ -118,7 +120,7 @@ class TrafficSimulation:
 
     def initialize_vehicles(self, num_vehicles, nav_percentage):
         print(f"Initializing {num_vehicles} vehicles ({nav_percentage}% with navigation)...")
-        nodes = list(self.G.nodes())
+        nodes = sorted(list(self.G.nodes()))
         
         for i in range(num_vehicles):
             initial_path = []
@@ -196,12 +198,7 @@ class TrafficSimulation:
                 continue
                 
             active_vehicles += 1
-            
-            # if self.should_reroute(vehicle):
-            #     new_path = self.find_path(vehicle)
-            #     if new_path:
-            #         vehicle.path = new_path
-            #         vehicle.reroutes += 1
+                      
             if vehicle.has_navigation:
                 new_path = self.find_path(vehicle)
                 if new_path:
@@ -209,6 +206,7 @@ class TrafficSimulation:
                     vehicle.reroutes += 1
             else:
                 if self.should_reroute(vehicle):
+
                     new_path = self.find_path(vehicle)
                     if new_path:
                         vehicle.path = new_path
@@ -225,7 +223,10 @@ class TrafficSimulation:
                     k = list(self.G[u][v].keys())[0]
                     vehicle.current_position = vehicle.path[1]
                     vehicle.distance_traveled += self.G[u][v][k]['length']
-                    vehicle.path = vehicle.path[1:]
+                    # base_speed * math.exp(-alpha * (congestion_factor - 1))
+                    speed = self.G[u][v][k]['base_speed'] * math.exp(-(self.G[u][v][k]['congestion_factor'] - 1))
+                    vehicle.travel_time = self.G[u][v][k]['length'] / speed
+                    vehicle.path = vehicle.path[1:] 
                 except Exception as e:
                     print(f"Error moving vehicle {vehicle.id}: {e}")
                     vehicle.stuck = True
@@ -281,6 +282,7 @@ class TrafficSimulation:
         return m
 
 def main():
+    random.seed(42)
     sim = TrafficSimulation()
     
     num_vehicles = 500
@@ -309,12 +311,14 @@ def main():
     active_vehicles = sum(1 for v in sim.vehicles.values() if not v.stuck)
     stuck_vehicles = sum(1 for v in sim.vehicles.values() if v.stuck)
     avg_distance = sum(v.distance_traveled for v in sim.vehicles.values()) / num_vehicles
+    avg_travel_time = sum(v.travel_time for v in sim.vehicles.values()) / num_vehicles
     
     print("\nSimulation Results:")
     print(f"Total reroutes: {total_reroutes}")
     print(f"Active vehicles: {active_vehicles}")
     print(f"Stuck vehicles: {stuck_vehicles}")
     print(f"Average distance traveled: {avg_distance:.2f} meters")
+    print(f'Average time taken: {avg_travel_time:.2f} hours')
     print(f"Maps generated: traffic_step_X.html")
 
 if __name__ == '__main__':
