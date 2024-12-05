@@ -281,7 +281,7 @@ class TrafficSimulation:
                 node = self.G.nodes[vehicle.current_position]
                 # color = 'red' if vehicle.stuck else ('blue' if vehicle.has_navigation else 'gray')
                 if vehicle.current_position == vehicle.end:
-                    color = 'gray'
+                    color = 'black'
                 elif vehicle.has_navigation:
                     color = 'red'
                 else:
